@@ -1,0 +1,164 @@
+openapi: 3.0.1
+info:
+  title: Avito Test Billing API
+  description: API тестового задания для backend-стажёра в юнит Billing.
+  version: 1.0.0
+servers:
+  - url: 'http://127.0.0.1:1080'
+paths:
+  /register:
+    post:
+      summary: Регистрация сессии оплаты.
+      description: Метод для регистрации сессии оплаты.
+      parameters:
+        - name: amount
+          required: true
+          description: Сумма к оплате.
+          in:
+            query
+          schema:
+            type: number
+            minimum: 0
+            example: 999999.1234
+        - name: target
+          required: true
+          description: Цель платежа.
+          in:
+            query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 511
+            example: 'Цель платежа'
+        - name: callback_url
+          required: false
+          description: URL для уведомления об успешной оплате.
+          in:
+            query
+          schema:
+            type: string
+            maxLength: 511
+      callbacks:
+        successPaid:
+          '{$parameters.query#/callback_url}':
+            post:
+              description: 'Отправляет HTTP-уведомление на указанный callback_url, если счет был оплачен.'
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        paymentId:
+                          type: string
+                          format: uuid
+                        paymentTime:
+                          type: string
+                          format: date-time
+              responses:
+                200:
+                  description: Ваш сервер должен вернуть этот код, если получил запрос.
+      responses:
+        201:
+          description: Payment session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        422:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+  /payments/period:
+    post:
+      summary: Запрос платежей за период.
+      description: Возвращает все платежи за заданный период.
+      parameters:
+        - name: from
+          required: true
+          description: Начало периода
+          in:
+            query
+          schema:
+            type: string
+            format: 'date-time'
+            example: '2020-05-25 00:00:00'
+        - name: to
+          required: true
+          description: Конец периода
+          in:
+            query
+          schema:
+            type: string
+            format: 'date-time'
+            example: '2020-05-26 00:00:00'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+
+        422:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+
+components:
+  schemas:
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          description: UUID платежа
+        target:
+          type: string
+          description: Цель платежа
+        amount:
+          type: number
+          description: Сумма платежа.
+        paid:
+          type: boolean
+          description: Статус оплаты платежа.
+        expires_at:
+          type: string
+          description: Дата истечения платежной сессии.
+        created_at:
+          type: string
+          description: Дата создания платежной сессии.
+        updated_at:
+          type: string
+          description: Дата обновления статуса платежа.
+    RegisterResponse:
+      type: object
+      properties:
+        sessionUrl:
+          type: string
+          description: Ссылка на форму оплаты.
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Сообщение об ошибке валидации данных.
+        errors:
+          type: object
+          properties:
+            WRONG_PARAM:
+              type: array
+              description: Массив с ошибками в параметре.
+              items:
+                type: string
+                description: Сообщение с ошибкой.
+          description: Объект, в котором ключи - имя параметра, а значение - массив
+            сообщений с ошибками валидации.

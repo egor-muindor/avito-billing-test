@@ -1,0 +1,77 @@
+version: '3'
+services:
+
+  #PHP Service
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+    image: digitalocean.com/php
+    container_name: app
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    working_dir: /var/www
+    volumes:
+      - ./src:/var/www
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - app-network
+
+  queue:
+    image: ipunktbs/laravel-queue-worker:php7.3-v4.4
+    container_name: queue
+    restart: unless-stopped
+    tty: true
+    environment:
+      QUEUE_CONNECTION: database
+    volumes:
+      - ./src:/var/www/app
+    networks:
+      - app-network
+
+  #Nginx Service
+  webserver:
+    image: nginx:alpine
+    container_name: webserver
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "1080:80"
+      - "10443:443"
+    volumes:
+      - ./src:/var/www
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+    networks:
+      - app-network
+
+  #MySQL Service
+  db:
+    image: mysql:8.0.21
+    command: --default-authentication-plugin=mysql_native_password --init-file /var/www/scripts/init.sql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: strong_P4ssword!
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    ports:
+      - "6306:3306"
+    volumes:
+      - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+      - ./docker/mysql/init.sql:/var/www/scripts/init.sql
+    networks:
+      - app-network
+
+  composer:
+    image: composer:2.0
+    volumes:
+      - ./src:/var/www
+    working_dir: /var/www
+    command: composer install
+
+#Docker Networks
+networks:
+  app-network:
+    driver: bridge

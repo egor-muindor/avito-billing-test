@@ -1,0 +1,2 @@
+CREATE SCHEMA `avito_billing` DEFAULT CHARACTER SET utf8mb4 ;
+CREATE SCHEMA `avito_billing_test` DEFAULT CHARACTER SET utf8mb4 ;
